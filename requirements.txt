@@ -1,0 +1,19 @@
+# requirements.txt
+
+# For the Streamlit web application framework
+streamlit
+# --- Environment Variable Management ---
+python-dotenv
+# --- Web Interaction & Parsing ---
+requests
+beautifulsoup4
+selenium
+
+# --- LLM Integration ---
+openai>=1.0.0 # Ensure you have the modern openai library version
+
+# --- Document Generation ---
+python-docx # Removed as we aren't saving docx in this version
+# --- Data Handling ---
+pandas # Still used for potential input handling internally maybe? Keep for now.
+# Add any other specific libraries your script implicitly uses
