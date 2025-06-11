@@ -2,6 +2,7 @@
 
 # For the Streamlit web application framework
 streamlit
+webdriver-manager
 # --- Environment Variable Management ---
 python-dotenv
 # --- Web Interaction & Parsing ---
