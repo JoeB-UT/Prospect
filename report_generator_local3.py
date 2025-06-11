@@ -24,6 +24,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import WebDriverException, NoSuchElementException, TimeoutException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
 
 # --- LLM Integration (OpenAI library for LM Studio) ---
 import openai # Import the base library to access specific error types like APIConnectionError
@@ -49,13 +50,13 @@ CHROMEDRIVER_PATH = r"C:\Users\jbennett\Tools\chromedriver.exe" # Make sure this
 load_dotenv()
 
 # LM Studio Configuration
-LM_STUDIO_BASE_URL = os.getenv("LM_STUDIO_BASE_URL", "http://172.21.71.81:1234/V1") # Added default from original if .env is missing
-LM_STUDIO_API_KEY = os.getenv("LM_STUDIO_API_KEY", "lm-studio") # Added default
-LM_STUDIO_MODEL = os.getenv("LM_STUDIO_MODEL_GEM", "llama-3.1-nemotron-8b-ultralong-4m-instruct") # Added default "LM_STUDIO_MODEL_GEM12"
+# LM_STUDIO_BASE_URL = os.getenv("LM_STUDIO_BASE_URL") # Added default from original if .env is missing
+# LM_STUDIO_API_KEY = os.getenv("LM_STUDIO_API_KEY", "lm-studio") # Added default
+# LM_STUDIO_MODEL = os.getenv("LM_STUDIO_MODEL_GEM") # Added default "LM_STUDIO_MODEL_GEM12"
 
 # Brave Search API Credentials
-BRAVE_API_KEY = os.getenv("BRAVE_SEARCH_KEY")
-BRAVE_SEARCH_API_ENDPOINT = os.getenv("BRAVE_SEARCH_ENDPOINT")
+# BRAVE_API_KEY = os.getenv("BRAVE_SEARCH_KEY")
+# BRAVE_SEARCH_API_ENDPOINT = os.getenv("BRAVE_SEARCH_ENDPOINT")
 
 # %%
 # --- Constants ---
@@ -83,51 +84,55 @@ except Exception as e:
     lm_studio_client = None
 
 # Check Brave Search Configuration
-USE_BRAVE_SEARCH = False
-if not BRAVE_API_KEY or not BRAVE_SEARCH_API_ENDPOINT or BRAVE_API_KEY == "YOUR_BRAVE_SEARCH_API_KEY" or BRAVE_API_KEY == "YOUR_BRAVE_API_KEY_PLACEHOLDER":
-    logging.warning("Brave Search API Key or Endpoint not found/configured correctly (e.g., placeholder value detected). Brave Search will be skipped.")
-else:
-    logging.info("Brave Search API credentials loaded.")
-    USE_BRAVE_SEARCH = True
+# USE_BRAVE_SEARCH = False
+# if not BRAVE_API_KEY or not BRAVE_SEARCH_API_ENDPOINT or BRAVE_API_KEY == "YOUR_BRAVE_SEARCH_API_KEY" or BRAVE_API_KEY == "YOUR_BRAVE_API_KEY_PLACEHOLDER":
+#     logging.warning("Brave Search API Key or Endpoint not found/configured correctly (e.g., placeholder value detected). Brave Search will be skipped.")
+# else:
+#     logging.info("Brave Search API credentials loaded.")
+#     USE_BRAVE_SEARCH = True
 
 # %%
 # --- Helper Functions ---
 def setup_selenium_driver():
-    logging.info("Setting up Selenium WebDriver using manual path...")
+    """
+    Sets up a Selenium WebDriver using webdriver-manager to automatically
+    handle the ChromeDriver.
+    """
+    logging.info("Setting up Selenium WebDriver with automatic driver management...")
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument(f"--user-agent={USER_AGENT}")
-    chrome_options.add_argument("--log-level=3")
+    chrome_options.add_argument("--log-level=3") # Suppress console noise
     chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
 
+    # Create a temporary directory for the user profile
     temp_profile_dir = None
     try:
         temp_profile_dir = tempfile.mkdtemp(prefix="selenium_chrome_profile_")
-        logging.info(f"Using temporary user data directory: {temp_profile_dir}")
         chrome_options.add_argument(f"--user-data-dir={temp_profile_dir}")
     except Exception as e:
-        logging.error(f"Could not create temporary directory for Chrome profile: {e}")
-
-    driver_path = CHROMEDRIVER_PATH
-
-    if not os.path.exists(driver_path):
-        logging.error(f"ChromeDriver not found at specified path: {driver_path}")
-        return None, temp_profile_dir
-
-    service = Service(executable_path=driver_path)
+        # This is not fatal, but log the warning
+        logging.warning(f"Could not create temporary directory for Chrome profile: {e}")
 
     try:
+        # Use ChromeDriverManager to automatically install and manage the driver
+        service = Service(ChromeDriverManager().install())
+        
         driver = webdriver.Chrome(service=service, options=chrome_options)
         driver.set_page_load_timeout(SELENIUM_TIMEOUT)
-        logging.info(f"WebDriver setup complete using specified driver: {driver_path}")
+        
+        logging.info("WebDriver setup complete using automatically managed driver.")
         return driver, temp_profile_dir
+
     except WebDriverException as e:
-        logging.error(f"Error initializing WebDriver with manual path {driver_path}: {e}")
+        logging.error(f"Error initializing WebDriver with webdriver-manager: {e}")
         if "session not created" in str(e).lower():
-            logging.error("This might indicate a version mismatch between ChromeDriver and your Chrome Browser.")
+            logging.error("This can happen if the installed Chrome browser version is incompatible.")
+            logging.error("On Streamlit Cloud, ensure 'google-chrome-stable' is in packages.txt.")
         return None, temp_profile_dir
+        
     except Exception as e:
         logging.error(f"An unexpected error occurred during WebDriver initialization: {e}")
         return None, temp_profile_dir
